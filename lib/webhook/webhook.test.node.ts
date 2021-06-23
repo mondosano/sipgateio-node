@@ -3,6 +3,10 @@ import { WebhookResponse, createWebhookModule } from './webhook';
 import axios, { AxiosResponse } from 'axios';
 import qs from 'qs';
 
+import * as audioUtils from './audioUtils';
+
+const mockedGetAudioMetadata = jest.spyOn(audioUtils, 'getAudioMetadata');
+
 describe('create webhook module', () => {
 	let webhookModule: WebhookModule;
 	const SERVER_PORT = 1234;
@@ -108,17 +112,29 @@ describe('create webhook module', () => {
 });
 
 describe('create webhook-"Response" module', () => {
-	it('should return a gather object without play tag', () => {
+	it('should return a gather object without play tag', async () => {
 		const gatherOptions = { maxDigits: 1, timeout: 2000 };
 		const gatherObject = {
 			Gather: { _attributes: { maxDigits: '1', timeout: '2000' } },
 		};
-		const result = WebhookResponse.gatherDTMF(gatherOptions);
+		const result = await WebhookResponse.gatherDTMF(gatherOptions);
 		expect(result).toEqual(gatherObject);
 	});
 
-	it('should return a gather object with play tag', () => {
-		const testUrl = 'www.testurl.de';
+	it('should return a gather object with play tag and a valid audio file', async () => {
+		mockedGetAudioMetadata.mockReturnValue(
+			new Promise((resolve) =>
+				resolve({
+					container: 'WAVE',
+					codec: 'PCM',
+					bitsPerSample: 16,
+					sampleRate: 8000,
+					numberOfChannels: 1,
+				})
+			)
+		);
+
+		const testUrl = 'www.testurl.com';
 		const gatherOptions = {
 			announcement: testUrl,
 			maxDigits: 1,
@@ -130,8 +146,157 @@ describe('create webhook-"Response" module', () => {
 				Play: { Url: testUrl },
 			},
 		};
-		const result = WebhookResponse.gatherDTMF(gatherOptions);
+		const result = await WebhookResponse.gatherDTMF(gatherOptions);
 		expect(result).toEqual(gatherObject);
+	});
+
+	it('should throw an exception for an invalid audio file in gather dtmf', async () => {
+		mockedGetAudioMetadata.mockReturnValue(
+			new Promise((resolve) =>
+				resolve({
+					container: 'WAVE',
+					codec: 'PCM',
+					bitsPerSample: 16,
+					sampleRate: 44100,
+					numberOfChannels: 1,
+				})
+			)
+		);
+
+		const testUrl = 'www.testurl.com';
+		const gatherOptions = {
+			announcement: testUrl,
+			maxDigits: 1,
+			timeout: 2000,
+		};
+
+		try {
+			await WebhookResponse.gatherDTMF(gatherOptions);
+			fail('It should throw "Invalid audio format"');
+		} catch (e) {
+			expect(e.message).toContain('Invalid audio format');
+		}
+	});
+
+	it('should return a play audio object for a valid audio file', async () => {
+		mockedGetAudioMetadata.mockReturnValue(
+			new Promise((resolve) =>
+				resolve({
+					container: 'WAVE',
+					codec: 'PCM',
+					bitsPerSample: 16,
+					sampleRate: 8000,
+					numberOfChannels: 1,
+				})
+			)
+		);
+		const testUrl = 'www.testurl.com';
+
+		const playOptions = {
+			announcement: testUrl,
+		};
+		const result = await WebhookResponse.playAudio(playOptions);
+		const playObject = { Play: { Url: 'www.testurl.com' } };
+		expect(result).toEqual(playObject);
+	});
+
+	it('should throw an exception for an invalid audio file in play audio', async () => {
+		mockedGetAudioMetadata.mockReturnValue(
+			new Promise((resolve) =>
+				resolve({
+					container: 'WAVE',
+					codec: 'PCM',
+					bitsPerSample: 16,
+					sampleRate: 44100,
+					numberOfChannels: 1,
+				})
+			)
+		);
+		const testUrl = 'www.testurl.com';
+
+		const playOptions = {
+			announcement: testUrl,
+		};
+
+		try {
+			await WebhookResponse.playAudio(playOptions);
+			fail('It should throw "Invalid audio format"');
+		} catch (e) {
+			expect(e.message).toContain('Invalid audio format');
+		}
+	});
+});
+
+describe('Signed webhook server', () => {
+	const webhookModule = createWebhookModule();
+	let webhookServer: WebhookServer;
+
+	const port = 9999;
+	const serverAddress = `localhost:9999`;
+
+	const newCallWebhook = {
+		callId: '',
+		direction: 'in',
+		event: 'newCall',
+		from: '4912354678',
+		'fullUserId[]': ['123456789'],
+		originalCallId: '',
+		to: '49999999',
+		'user[]': ['TestUser'],
+		'userId[]': ['123456789'],
+		xcid: '',
+	};
+
+	const signature =
+		'hlY7r9Vad0NP/7xJxf+vcDqjWaGWHOcIrj+rcP5aqQQcHtbSLsElp2kRNRPBL5unWbq6bExVPZB49HHM+Y/fWSVL19q7KSJhYPHfikcME0r0mCYB4S/VnJwnIvpiqz6s7Dpnk3wDCy65B3WQLwBVWA9oh6ojNM/g+87YnoMTKRx1KoFqosKNfBp1c1I8XjXusGOW/VlGnMb6wHhUVdwi9K7FfUgxj2pnV+M1Xv9rYs6RAi4V1OcUPqdT5geHsxWa09sk+AEHSUm1EFnAvx7PhIkugpNwST7yPKHf0+iyei4qUQCBZtfQVOI4mLZTRfQuyVo3YuJfvHaNPYY34/1ZCZGCKeu+HS6WHs1vGUyKxSi8v4JJqog2VOlWruf8pMGg+syuAFwuxiCnWsSXgaaUfe9JrBAFjBxUmNP9DzR1bbkwxkJnthacu7jALXjGsubjSSSl955QgenV/ZpODHgWDPg0fe6qGILtk+kXLjyfSsoR/qgzE5W5OAyZq8W64h01KAt9Q283N7/2nogy6keiIWL3qjPolWnrchSP7iJUatM2YiTcpkNKnJ70UE05cdw3swuNe7zqD51MdOX3rAioEOFgOIFMSrxMVX+V4XK7sa5o43smN8lHoa+0AogQMuIrC7k2axdRbulSSNfyqVAZIT4qS0cItiv3aPXsdDKkkA0=';
+
+	const sendTestWebhook = async (
+		signature = '',
+		newCallEvent = newCallWebhook
+	): Promise<AxiosResponse<string>> => {
+		return await axios.post(
+			`http://${serverAddress}`,
+			qs.stringify(newCallEvent),
+			{
+				headers: {
+					'Content-Type': 'application/x-www-form-urlencoded',
+					'x-sipgate-signature': signature,
+				},
+			}
+		);
+	};
+
+	beforeEach(async () => {
+		webhookServer = await webhookModule.createServer({
+			port,
+			serverAddress,
+		});
+	});
+
+	afterEach(() => {
+		webhookServer.stop();
+	});
+
+	it('should successfully verify header signature for webhook body', async () => {
+		// eslint-disable-next-line @typescript-eslint/no-empty-function
+		webhookServer.onNewCall(() => {});
+
+		const response = await sendTestWebhook(signature);
+
+		expect(response.data).toEqual(
+			`<?xml version="1.0" encoding="utf-8"?>\n<Response/>`
+		);
+	});
+
+	it('should return error if header signature is not valid', async () => {
+		// eslint-disable-next-line @typescript-eslint/no-empty-function
+		webhookServer.onNewCall(() => {});
+
+		const response = await sendTestWebhook('fakeSignature');
+
+		expect(response.data).toEqual(
+			`<?xml version="1.0" encoding="UTF-8"?><Error message="Signature verification failed." />`
+		);
 	});
 });
 
@@ -175,7 +340,9 @@ describe('The webhook server', () => {
 			`http://${serverAddress}`,
 			qs.stringify(newCallEvent),
 			{
-				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+				headers: {
+					'Content-Type': 'application/x-www-form-urlencoded',
+				},
 			}
 		);
 	};
@@ -184,6 +351,7 @@ describe('The webhook server', () => {
 		webhookServer = await webhookModule.createServer({
 			port,
 			serverAddress,
+			skipSignatureVerification: true,
 		});
 	});
 
