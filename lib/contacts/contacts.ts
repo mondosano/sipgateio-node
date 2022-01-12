@@ -129,7 +129,6 @@ export const createContactsModule = (
 	},
 
 	async exportAsCsv(
-		scope,
 		delimiter = ',',
 		pagination,
 		filter
@@ -144,10 +143,6 @@ export const createContactsModule = (
 			}
 		);
 
-		contactsResponse.items = contactsResponse.items.filter(
-			(contact) => contact.scope === scope
-		);
-
 		const fields = [
 			'id',
 			'name',
@@ -155,6 +150,7 @@ export const createContactsModule = (
 			'numbers',
 			'addresses',
 			'organizations',
+			'scope'
 		];
 		const opts = { fields, delimiter };
 		const elements = contactsResponse.items.map((contact) => {
@@ -165,15 +161,17 @@ export const createContactsModule = (
 				numbers: contact.numbers.map((number) => number.number),
 				addresses: contact.addresses,
 				organizations: contact.organization,
+				scope: contact.scope
 			};
 		});
 		try {
 			const parser = new Parser(opts);
 			return parser.parse(elements);
 		} catch (err) {
-			throw Error(err);
+			throw Error(`${err}`);
 		}
 	},
+	
 	async get(scope, pagination, filter): Promise<ContactResponse[]> {
 		const contactsResponse = await client.get<ContactsListResponse>(
 			`contacts`,

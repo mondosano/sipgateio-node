@@ -9,7 +9,6 @@ export interface ContactsModule {
 	importFromCsvString: (csvContent: string) => Promise<void>;
 	importVCardString: (vcardContent: string, scope: Scope) => Promise<void>;
 	exportAsCsv: (
-		scope: ExportScope,
 		delimiter?: string,
 		pagination?: Pagination,
 		filter?: ContactsExportFilter
