@@ -24,6 +24,7 @@ export interface BaseHistoryFilter {
     starred?: Starred;
     startDate?: Date;
     endDate?: Date;
+    phonenumber?: String;
 }
 export interface HistoryFilterDTO {
     connectionIds?: string[];
@@ -33,6 +34,7 @@ export interface HistoryFilterDTO {
     starred?: Starred;
     from?: Date;
     to?: Date;
+    phonenumber?: String;
 }
 export interface HistoryFilter extends BaseHistoryFilter {
     phonenumber?: string;

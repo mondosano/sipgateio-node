@@ -36,6 +36,7 @@ exports.createHistoryModule = (client) => ({
                 starred: filter.starred,
                 to: filter.endDate,
                 types: filter.types,
+                phonenumber: filter.phonenumber,
             };
             return client
                 .get('/history', {
@@ -101,6 +102,7 @@ exports.createHistoryModule = (client) => ({
                 starred: filter.starred,
                 to: filter.endDate,
                 types: filter.types,
+                phonenumber: filter.phonenumber,
             };
             return client
                 .get('/history/export', {

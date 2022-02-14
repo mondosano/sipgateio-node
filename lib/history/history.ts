@@ -26,6 +26,7 @@ export const createHistoryModule = (
 			starred: filter.starred,
 			to: filter.endDate,
 			types: filter.types,
+			phonenumber: filter.phonenumber,
 		};
 
 		return client
@@ -101,6 +102,7 @@ export const createHistoryModule = (
 			starred: filter.starred,
 			to: filter.endDate,
 			types: filter.types,
+			phonenumber: filter.phonenumber,
 		};
 
 		return client
