@@ -1,5 +1,4 @@
 import { Server } from 'http';
-import { SipgateIOClient } from '..';
 
 export enum EventType {
 	NEW_CALL = 'newCall',
@@ -16,10 +15,7 @@ export type NewCallCallback = HandlerCallback<
 >;
 export type AnswerCallback = HandlerCallback<AnswerEvent, void>;
 export type HangUpCallback = HandlerCallback<HangUpEvent, void>;
-export type DataCallback = HandlerCallback<
-	DataEvent,
-	ResponseObject | Promise<ResponseObject> | void
->;
+export type DataCallback = HandlerCallback<DataEvent, ResponseObject | void>;
 
 export interface WebhookHandlers {
 	[EventType.NEW_CALL]?: NewCallCallback;
@@ -51,7 +47,6 @@ export interface WebhookResponseInterface {
 	redirectCall: (redirectOptions: RedirectOptions) => RedirectObject;
 	gatherDTMF: (gatherOptions: GatherOptions) => Promise<GatherObject>;
 	playAudio: (playOptions: PlayOptions) => Promise<PlayObject>;
-	playAudioAndHangUp: (playOptions: PlayOptions, client: SipgateIOClient, callId: string, timeout?: number) => Promise<PlayObject>;
 	rejectCall: (rejectOptions: RejectOptions) => RejectObject;
 	hangUpCall: () => HangUpObject;
 	sendToVoicemail: () => VoicemailObject;

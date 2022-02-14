@@ -10,7 +10,6 @@ A JavaScript library for [sipgate.io](https://www.sipgate.io/)
 	- [Call](#call)
 	- [Webhook (node.js only)](#webhook-nodejs-only)
 	- [Webhook Settings](#webhook-settings)
-	- [Fluent interface](#fluent-interface)
 	- [Contacts](#contacts)
 	- [History](#history)
 	- [Numbers](#numbers)
@@ -22,7 +21,6 @@ A JavaScript library for [sipgate.io](https://www.sipgate.io/)
 	- [Call](#call-1)
 	- [Webhooks](#webhooks)
 	- [Webhook Settings](#webhook-settings-1)
-	- [Fluent interface](#fluent-interface-1)
 	- [Contacts](#contacts-1)
 	- [History](#history-1)
 	- [Numbers](#numbers-1)
@@ -69,10 +67,6 @@ Set up a webserver to process real-time call data from sipgate.io.
 ### Webhook Settings
 
 Configure the webhook functionality of sipgate.io. Currently, you can set URLs and whitelist extensions for triggering webhooks as well as toggle the debug log.
-
-### Fluent interface
-
-The fluent interface module is a wrapper for the webhook module to simplify its usage.
 
 ### Contacts
 
@@ -369,6 +363,9 @@ export interface ServerOptions {
 }
 ```
 
+Webhooks are verified to ensure that they are sent by sipgate.\
+You can optionally disable this via the `skipSignatureVerification` flag.
+
 It returns a `Promise<WebhookServer>` which, when resolved, provides the following methods:
 
 ```typescript
@@ -382,13 +379,6 @@ interface WebhookServer {
 ```
 
 The `stop` method simply kills the server, the other methods each take a callback function for handling the respective types of events suggested by their name.
-
-#### Security
-
-Webhooks are verified to ensure that they are sent by sipgate.\
-You can optionally disable this via the `skipSignatureVerification` flag.
-
-Additionaly you can check that webhooks are originated from push-api.sipgate.net (217.116.118.254).
 
 #### Registering event callbacks
 
@@ -486,7 +476,6 @@ interface WebhookResponseInterface {
 	sendToVoicemail: () => VoicemailObject;
 	rejectCall: (rejectOptions: RejectOptions) => RejectObject;
 	playAudio: (playOptions: PlayOptions) => PlayObject;
-	playAudioAndHangUp: (playOptions: PlayOptions, client: SipgateIOClient, callId: string, timeout?: number) => Promise<PlayObject>;
 	gatherDTMF: (gatherOptions: GatherOptions) => GatherObject;
 	hangUpCall: () => HangUpObject;
 }
@@ -531,15 +520,6 @@ Linux users might want to use mpg123 to convert the file:
 mpg123 --rate 8000 --mono -w output.wav input.mp3
 ```
 
-##### Play audio and hang up
-
-The `playAudioAndHangUp` method accepts an options object of type `PlayOptions` with a single field, the URL to a sound file to be played.
-In addition, this also requires a `sipgateIOClient`, a unique `callId` from an current active call and a `timeout` which is optional.
-
-After the audio file has been played and the additional timeout has expired, the call is terminated based on the `callId`. 
-
-**Note:** For any information about the audio file please look at [play audio](#play-audio).
-
 ##### Gather DTMF tones
 
 The `gatherDTMF` method accepts an options object of type `GatherOptions` with the following fields:
@@ -552,7 +532,7 @@ type GatherOptions = {
 };
 ```
 
-`maxDigits` (> = 1) specifies to maximum number of DTMF tones to be gathered , the `timeout` (> = 0) is the period in milliseconds to wait for DTMF input from a caller before processing. Please note that the establishment of the call is delayed until this period has elapsed.
+`maxDigits` specifies to maximum number of DTMF tones to be gathered, the `timeout` is the period in milliseconds to wait for DTMF input from a caller before processing. Please note that the establishment of the call is delayed until this period has elapsed.
 By specifying a URL to a sound file as `announcement` an audio message can be played to inform callers what DTMF tones they should send.
 
 **Note:** Please consider the above restrictions concerning the format of the announcement file.
@@ -609,39 +589,6 @@ async function getWebhookSettings(): Promise<WebhookSettings>;
 ```
 
 The `getWebhookSettings` function returns you the current settings of sipgate.io including the incoming/outgoing URL, whether logging is enabled or if a specific whitelist of devices is set for your incoming & outgoing URL.
-
-### Fluent interface
-
-The fluent interface module currently provides a wrapper for the following functions of the webhook module:
-
-- port
-- serverAddress
-- AnswerCallback
-- DataCallback
-- HangUpCallback
-- NewCallCallback
-- startServer
-
-Example:
-
-```typescript
-new FluentWebhookServer()
-	.setServerPort(port)
-	.setServerAddress(serverAddress)
-	.setOnNewCallListener((newCallEvent) => {
-		console.log(`New call from ${newCallEvent.from} 	to ${newCallEvent.to}`);
-	})
-	.setOnAnswerListener((answerEvent) => {
-		console.log(`Answer from: ${answerEvent.from}`);
-	})
-	.setOnHangupListener((hangupEvent) => {
-		console.log(`Hangup with cause: ${hangupEvent.cause}`);
-	})
-	.setOnDataListener((dataEvent) => {
-		console.log(`Data from Call: ${dataEvent.originalCallId}`);
-	})
-	.startServer();
-```
 
 ### Contacts
 

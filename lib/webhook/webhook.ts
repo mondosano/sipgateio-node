@@ -26,7 +26,6 @@ import { isSipgateSignature } from './signatureVerifier';
 import { js2xml } from 'xml-js';
 import { parse } from 'qs';
 import { validateAnnouncementAudio } from './audioUtils';
-import { createRTCMModule, SipgateIOClient } from '..';
 
 interface WebhookApiResponse {
 	_declaration: {
@@ -61,9 +60,6 @@ const createWebhookServer = async (
 			res: OutgoingMessage
 		): Promise<void> => {
 			const requestBody = await collectRequestData(req);
-			if (!serverAddressesMatch(req, serverOptions)) {
-				console.error(WebhookErrorMessage.SERVERADDRESS_DOES_NOT_MATCH)
-			}
 			if (!serverOptions.skipSignatureVerification) {
 				if (!req.headers['x-forwarded-for']?.includes(SIPGATE_IP_ADRESS)) {
 					console.error(WebhookErrorMessage.INVALID_ORIGIN);
@@ -248,43 +244,8 @@ const isGatherObject = (
 	return (gatherCandidate as GatherObject)?.Gather !== undefined;
 };
 
-export const serverAddressesMatch = ({ headers: { host }, url }: { headers: { host?: string }, url?: string }, { serverAddress }: { serverAddress: string }): boolean => {
-	const actual = new URL("http://" + host + url);
-	const expected = new URL(serverAddress);
-
-	function paramsToObject(entries: IterableIterator<[string, string]>) {
-		type KeyValueSet = { [shot: string]: string };
-		const result: KeyValueSet = {};
-
-		for (const [key, value] of entries) {
-			result[key] = value;
-		}
-		return result;
-	}
-
-	return [
-		actual.hostname == expected.hostname,
-		actual.pathname == expected.pathname,
-		JSON.stringify(paramsToObject(actual.searchParams.entries())) == JSON.stringify(paramsToObject(expected.searchParams.entries()))
-	].every(filter => filter === true)
-}
-
 export const WebhookResponse: WebhookResponseInterface = {
 	gatherDTMF: async (gatherOptions: GatherOptions): Promise<GatherObject> => {
-		if (gatherOptions.maxDigits < 1){
-			throw new Error(
-				`\n\n${
-					WebhookErrorMessage.INVALID_DTMF_MAX_DIGITS
-				}\nYour maxDigits was: ${gatherOptions.maxDigits}\n`
-			);
-		}
-		if (gatherOptions.timeout < 0){
-			throw new Error(
-				`\n\n${
-					WebhookErrorMessage.INVALID_DTMF_TIMEOUT
-				}\nYour timeout was: ${gatherOptions.timeout}\n`
-			);
-		}
 		const gatherObject: GatherObject = {
 			Gather: {
 				_attributes: {
@@ -327,43 +288,6 @@ export const WebhookResponse: WebhookResponseInterface = {
 				}\nYour format was: ${JSON.stringify(validationResult.metadata)}\n`
 			);
 		}
-
-		return { Play: { Url: playOptions.announcement } };
-	},
-
-	playAudioAndHangUp: async (
-		playOptions: PlayOptions,
-		client: SipgateIOClient,
-		callId: string,
-		timeout?: number
-	): Promise<PlayObject> => {
-		const validationResult = await validateAnnouncementAudio(
-			playOptions.announcement
-		);
-
-		if (!validationResult.isValid) {
-			throw new Error(
-				`\n\n${
-					WebhookErrorMessage.AUDIO_FORMAT_ERROR
-				}\nYour format was: ${JSON.stringify(validationResult.metadata)}\n`
-			);
-		}
-
-		let duration = validationResult.metadata.duration
-			? validationResult.metadata.duration * 1000
-			: 0;
-
-		duration += timeout ? timeout : 0;
-
-		setTimeout(() => {
-			const rtcm = createRTCMModule(client);
-			try {
-				rtcm.hangUp({ callId });
-			} catch (error) {
-				console.log(error)
-				return;
-			}
-		}, duration);
 
 		return { Play: { Url: playOptions.announcement } };
 	},
